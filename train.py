@@ -29,11 +29,11 @@ def train_encoder(
     num_epochs=config.STAGE1_EPOCHS,
     device=config.DEVICE
 ):
-    """Stage 1: 预训练MEG编码器"""
-    print("开始编码器预训练 (阶段 1)")
+    """Stage 1: Pre-training MEG encoder"""
+    print("Starting encoder pre-training (Stage 1)")
     
-    # 简单分类头
-    num_classes = 10000  # 增大类别数以容纳更大范围的token ID
+    # Simple classification head
+    num_classes = 10000  # Increase class number to accommodate larger range of token IDs
     vocab_size = 50000
     classifier = nn.Linear(config.EMBED_DIM, vocab_size).to(device)
     criterion = nn.CrossEntropyLoss(ignore_index=-100, reduction='mean')
@@ -41,7 +41,7 @@ def train_encoder(
     best_val_loss = float('inf')
     
     for epoch in range(num_epochs):
-        # 训练
+        # Training
         model.train()
         train_loss = 0
         
@@ -49,37 +49,37 @@ def train_encoder(
             meg_data = batch['meg_data'].to(device)
             text_data = batch['text_data']['input_ids'].to(device)
             
-            # 前向传播
+            # Forward pass
             meg_embeddings = model(meg_data)
             
-            # 平均池化
+            # Average pooling
             meg_embeddings = meg_embeddings.mean(dim=1)
             
-            # 预测token IDs
+            # Predict token IDs
             logits = classifier(meg_embeddings)
             
-            # 获取目标 - 使用第一个token
+            # Get target - use first token
             targets = text_data[:, 0]
             
-            # 检查目标有效性
+            # Check target validity
             max_target = torch.max(targets).item()
             if max_target >= num_classes:
-                # 裁剪目标到有效范围
+                # Clip targets to valid range
                 targets = torch.clamp(targets, 0, num_classes-1)
             
-            # 确保targets为long类型
+            # Ensure targets are long type
             targets = targets.long()
             
             loss = criterion(logits, targets)
             
-            # 反向传播
+            # Backward pass
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             
             train_loss += loss.item()
         
-        # 更新学习率
+        # Update learning rate
         scheduler.step()
         
         # Validation
@@ -94,47 +94,47 @@ def train_encoder(
                     meg_data = batch['meg_data'].to(device)
                     text_data = batch['text_data']['input_ids'].to(device)
                     
-                    # 安全检查
+                    # Safety check
                     if meg_data.shape[0] == 0 or text_data.shape[0] == 0:
-                        print(f"跳过空批次 {batch_idx}")
+                        print(f"Skipping empty batch {batch_idx}")
                         continue
                     
-                    # 前向传播
+                    # Forward pass
                     meg_embeddings = model(meg_data)
                     meg_embeddings = meg_embeddings.mean(dim=1)
                     logits = classifier(meg_embeddings)
                     
-                    # 目标安全处理
+                    # Target safety handling
                     targets = text_data[:, 0].clone()
                     valid_mask = (targets >= 0) & (targets < vocab_size)
                     
                     if not valid_mask.all():
                         invalid_count = (~valid_mask).sum().item()
-                        print(f"警告: 验证批次 {batch_idx} 有 {invalid_count} 个超出范围的目标索引")
-                        targets[~valid_mask] = 0  # 使用安全的类别索引
+                        print(f"Warning: Validation batch {batch_idx} has {invalid_count} out-of-range target indices")
+                        targets[~valid_mask] = 0  # Use safe category index
                     
                     targets = targets.long()
                     
-                    # 计算损失
+                    # Calculate loss
                     loss = criterion(logits, targets)
                     
                     val_loss += loss.item()
                     val_samples += 1
                     
                 except RuntimeError as e:
-                    print(f"验证批次 {batch_idx} 出错: {str(e)}")
-                    print(f"跳过此批次并继续")
-                    # 打印更多调试信息
+                    print(f"Error in validation batch {batch_idx}: {str(e)}")
+                    print(f"Skipping this batch and continuing")
+                    # Print more debug info
                     if 'meg_data' in locals() and 'text_data' in locals():
-                        print(f"MEG数据形状: {meg_data.shape}")
-                        print(f"文本数据形状: {text_data.shape}")
+                        print(f"MEG data shape: {meg_data.shape}")
+                        print(f"Text data shape: {text_data.shape}")
                         if text_data.shape[0] > 0:
-                            print(f"目标值范围: {text_data[:, 0].min().item()} 到 {text_data[:, 0].max().item()}")
+                            print(f"Target value range: {text_data[:, 0].min().item()} to {text_data[:, 0].max().item()}")
                     continue
         
-        # 计算平均损失
-        val_loss = val_loss / max(1, val_samples)  # 避免除零
-        print(f"Epoch {epoch+1}/{num_epochs} - 验证损失: {val_loss:.4f}")
+        # Calculate average loss
+        val_loss = val_loss / max(1, val_samples)  # Avoid division by zero
+        print(f"Epoch {epoch+1}/{num_epochs} - Validation loss: {val_loss:.4f}")
 
         # Print statistics
         train_loss /= len(train_loader)
