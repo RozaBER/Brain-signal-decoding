@@ -12,18 +12,18 @@ os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 os.environ['CUDA_LAUNCH_BLOCKING'] = '1' 
 
 def main():
-    # 设置随机种子
+    # Set random seed
     set_seed(config.SEED)
     
-    # 创建数据加载器
+    # Create data loaders
     train_loader, val_loader, _ = create_data_loaders()
     
-    # 决定从哪个阶段开始
-    start_stage = 1  # 修改这里来从不同阶段开始
+    # Decide which stage to start from
+    start_stage = 1  # Modify this to start from different stages
     
-    # 阶段1: 预训练MEG编码器
+    # Stage 1: Pretrain MEG encoder
     if start_stage <= 1:
-        print("开始阶段1: 预训练MEG编码器")
+        print("Starting Stage 1: Pretraining MEG encoder")
         meg_encoder = get_meg_encoder().to(config.DEVICE)
         optimizer = torch.optim.AdamW(meg_encoder.parameters(), lr=config.LEARNING_RATE)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=config.STAGE1_EPOCHS)
@@ -37,7 +37,7 @@ def main():
             num_epochs=config.STAGE1_EPOCHS
         )
     else:
-        # 从检查点加载
+        # Load from checkpoint
         meg_encoder = get_meg_encoder().to(config.DEVICE)
         meg_encoder = load_checkpoint(
             model=meg_encoder,
@@ -46,9 +46,9 @@ def main():
             scheduler=None
         )
     
-    # 阶段2: 训练对齐模块
+    # Stage 2: Train alignment module
     if start_stage <= 2:
-        print("开始阶段2: 训练对齐模块")
+        print("Starting Stage 2: Training alignment module")
         alignment_module = AlignmentModule().to(config.DEVICE)
         optimizer = torch.optim.AdamW(alignment_module.parameters(), lr=config.LEARNING_RATE)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=config.STAGE2_EPOCHS)
@@ -63,7 +63,7 @@ def main():
             num_epochs=config.STAGE2_EPOCHS
         )
     else:
-        # 从检查点加载
+        # Load from checkpoint
         alignment_module = AlignmentModule().to(config.DEVICE)
         alignment_module = load_checkpoint(
             model=alignment_module,
@@ -72,16 +72,16 @@ def main():
             scheduler=None
         )
     
-    # 初始化BrainLLaVA模型
+    # Initialize BrainLLaVA model
     brain_llava = BrainLLaVA(
         meg_encoder=meg_encoder,
         alignment_module=alignment_module
     ).to(config.DEVICE)
     
-    # 阶段3: 训练LLaVA适配器
+    # Stage 3: Train LLaVA adapter
     if start_stage <= 3:
-        print("开始阶段3: 训练LLaVA适配器")
-        # 只训练交叉注意力层
+        print("Starting Stage 3: Training LLaVA adapter")
+        # Only train cross-attention layers
         optimizer = torch.optim.AdamW(
             [p for p in brain_llava.parameters() if p.requires_grad],
             lr=config.LEARNING_RATE / 10
@@ -97,7 +97,7 @@ def main():
             num_epochs=config.STAGE3_EPOCHS
         )
     else:
-        # 从检查点加载
+        # Load from checkpoint
         brain_llava = load_checkpoint(
             model=brain_llava,
             filename=os.path.join(config.CHECKPOINTS_PATH, "brain_llava_adapter_best.pt"),
@@ -105,10 +105,10 @@ def main():
             scheduler=None
         )
     
-    # 阶段4: 端到端微调
+    # Stage 4: End-to-end fine-tuning
     if start_stage <= 4:
-        print("开始阶段4: 端到端微调")
-        # 解冻所有参数
+        print("Starting Stage 4: End-to-end fine-tuning")
+        # Unfreeze all parameters
         brain_llava.unfreeze_llava()
         
         optimizer = torch.optim.AdamW([
@@ -127,7 +127,7 @@ def main():
             num_epochs=config.STAGE4_EPOCHS
         )
     
-    # 保存最终模型
+    # Save final model
     save_checkpoint(
         model=brain_llava,
         optimizer=None,
@@ -137,7 +137,7 @@ def main():
         filename=os.path.join(config.CHECKPOINTS_PATH, "brain_llava_final.pt")
     )
     
-    print("训练完成!")
+    print("Training completed!")
 
 if __name__ == "__main__":
     main()
