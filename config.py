@@ -62,16 +62,16 @@ STAGE2_EPOCHS = 10  # Cross-modal alignment
 STAGE3_EPOCHS = 5   # LLaVA adapter training
 STAGE4_EPOCHS = 5   # End-to-end fine-tuning
 
-# 预处理配置
-VERBOSE_PREPROCESSING = False  # 设置为True可以查看预处理详细信息
-DEBUG_MODE = True  # 在训练期间启用更多调试输出
+# Preprocessing configuration
+VERBOSE_PREPROCESSING = False  # Set to True to see detailed preprocessing information
+DEBUG_MODE = True  # Enable more debug output during training
 
-# 安全配置
-MIN_SIGNAL_LENGTH = 50  # 最小接受的信号长度，太短的信号会被跳过
+# Safety configuration
+MIN_SIGNAL_LENGTH = 50  # Minimum accepted signal length, too short signals will be skipped
 
-# MEG数据标准化配置
-MEG_STANDARD_LENGTH = 100  # 所有MEG片段的标准化长度
-MIN_SIGNAL_LENGTH = 50    # 最小接受的信号长度，小于此长度跳过复杂滤波
+# MEG data standardization configuration
+MEG_STANDARD_LENGTH = 100  # Standard length for all MEG segments
+MIN_SIGNAL_LENGTH = 50    # Minimum accepted signal length, skip complex filtering below this length
 
 # Device configuration
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
