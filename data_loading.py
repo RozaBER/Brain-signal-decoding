@@ -59,54 +59,54 @@ class MASCMEGDataset(Dataset):
     def _standardize_meg_length(self, meg_data, target_length=None):
     
         if target_length is None:
-            target_length = 100  # 默认目标长度，可以在config中设置
+            target_length = 100  # Default target length, can be set in config
     
-        # 检查数据有效性
+        # Check data validity
         if meg_data is None or meg_data.size == 0:
-            print("警告: 收到空MEG数据，返回零矩阵")
+            print("Warning: Received empty MEG data, returning zero matrix")
             return np.zeros((config.MEG_CHANNELS, target_length))
     
-        # 检查是否包含NaN或无穷大
+        # Check if contains NaN or infinity
         if np.isnan(meg_data).any() or np.isinf(meg_data).any():
-            print("警告: MEG数据包含NaN或无穷大值，进行替换")
+            print("Warning: MEG data contains NaN or infinity values, replacing them")
             meg_data = np.nan_to_num(meg_data, nan=0.0, posinf=1.0, neginf=-1.0)
     
-        # 确保target_length是正整数
+        # Ensure target_length is a positive integer
         if not isinstance(target_length, int) or target_length <= 0:
-            print(f"警告: 无效的目标长度 {target_length}，使用默认值100")
+            print(f"Warning: Invalid target length {target_length}, using default value 100")
             target_length = 100
     
         current_length = meg_data.shape[1]
         channels = meg_data.shape[0]
 
         if current_length == target_length:
-            return meg_data  # 已经是正确长度
+            return meg_data  # Already correct length
     
         if current_length > target_length:
-            # 如果太长，则截取中间部分
+            # If too long, crop the middle section
             start = (current_length - target_length) // 2
             return meg_data[:, start:start+target_length]
         else:
             try:
-                # 如果太短，则用零填充
+                # If too short, pad with zeros
                 padded_data = np.zeros((channels, target_length))
                 start = (target_length - current_length) // 2
                 padded_data[:, start:start+current_length] = meg_data
                 return padded_data
             except Exception as e:
-                print(f"填充MEG数据时出错: {e}")
-                print(f"MEG数据形状: {meg_data.shape}, 目标长度: {target_length}")
-                # 返回一个安全的零矩阵
+                print(f"Error padding MEG data: {e}")
+                print(f"MEG data shape: {meg_data.shape}, target length: {target_length}")
+                # Return a safe zero matrix
                 return np.zeros((channels, target_length))
     
     def _get_data_files(self):
         """Get all available MEG data files matching the specified subjects, sessions, and tasks."""
         data_files = []
 
-        print(f"正在搜索MEG文件，基础路径: {self.base_path}")
-        print(f"搜索受试者: {self.subjects}")
-        print(f"搜索会话: {self.sessions}")
-        print(f"搜索任务: {self.tasks}")
+        print(f"Searching for MEG files, base path: {self.base_path}")
+        print(f"Searching subjects: {self.subjects}")
+        print(f"Searching sessions: {self.sessions}")
+        print(f"Searching tasks: {self.tasks}")
         
         for subject in self.subjects:
             for session in self.sessions:
@@ -122,7 +122,7 @@ class MASCMEGDataset(Dataset):
                     
                     meg_file = os.path.normpath(meg_file)
 
-                    # 构建事件文件路径
+                    # Build events file path
                     events_file = os.path.join(
                         self.base_path, 
                         subject, 
@@ -133,7 +133,7 @@ class MASCMEGDataset(Dataset):
                     events_file = os.path.normpath(events_file)
                     
                     if os.path.exists(meg_file) and os.path.exists(events_file):
-                        print(f"找到MEG文件: {meg_file}")
+                        print(f"Found MEG file: {meg_file}")
                         data_files.append({
                             'subject': subject,
                             'session': session,
@@ -142,7 +142,7 @@ class MASCMEGDataset(Dataset):
                             'events_file': events_file
                     })
                         
-        print(f"总共找到 {len(data_files)} 个MEG文件")
+        print(f"Found a total of {len(data_files)} MEG files")
         return data_files
     
     def _load_events_info(self):
@@ -230,35 +230,35 @@ class MASCMEGDataset(Dataset):
         return len(self.samples)
     
     def __getitem__(self, idx):
-        """获取数据集中的样本"""
+        """Get a sample from the dataset"""
         sample = self.samples[idx]
     
-        # 加载MEG数据
+        # Load MEG data
         try:
-            # 使用正确的函数读取.con文件
+            # Use the correct function to read .con file
             raw = mne.io.read_raw_kit(sample['meg_file'], preload=False)
         
-            # 提取对应时间窗口的数据
+            # Extract data for the corresponding time window
             start_time = sample['meg_start']
             end_time = sample['meg_end']
         
-            # 裁剪到特定时间窗口
+            # Crop to specific time window
             raw.crop(tmin=start_time, tmax=end_time)
             meg_data = raw.get_data()
         
-            # 应用预处理
+            # Apply preprocessing
             meg_data = self._preprocess_meg(meg_data, raw.info)
         
-            # 关键新步骤: 标准化数据长度
-            meg_data = self._standardize_meg_length(meg_data, 100)  # 100是目标长度，可调整
+            # Critical new step: Standardize data length
+            meg_data = self._standardize_meg_length(meg_data, 100)  # 100 is target length, adjustable
         
         except Exception as e:
-            print(f"读取MEG文件出错: {sample['meg_file']}")
-            print(f"错误信息: {str(e)}")
-            # 返回一个零数组作为备选
-            meg_data = np.zeros((config.MEG_CHANNELS, 100))  # 使用相同目标长度
+            print(f"Error reading MEG file: {sample['meg_file']}")
+            print(f"Error message: {str(e)}")
+            # Return a zero array as fallback
+            meg_data = np.zeros((config.MEG_CHANNELS, 100))  # Use same target length
     
-        # 其余部分保持不变
+        # Rest remains unchanged
         if self.transform:
             meg_data = self.transform(meg_data)
     
@@ -283,13 +283,13 @@ class MASCMEGDataset(Dataset):
         }
     
     def _preprocess_meg(self, meg_data, info):
-        """预处理MEG数据"""
+        """Preprocess MEG data"""
         
         signal_length = meg_data.shape[1]
 
-        # 针对超短信号简化处理
-        if signal_length < 50:  # 对于非常短的信号
-            # 跳过滤波，只做归一化
+        # Simplified processing for ultra-short signals
+        if signal_length < 50:  # For very short signals
+            # Skip filtering, only do normalization
             if config.NORMALIZATION == "global":
                 meg_data = (meg_data - np.mean(meg_data)) / (np.std(meg_data) + 1e-8)
             elif config.NORMALIZATION == "channel":
@@ -299,12 +299,12 @@ class MASCMEGDataset(Dataset):
                         meg_data[i] = (channel_data - np.mean(channel_data)) / (np.std(channel_data) + 1e-8)
             return meg_data
     
-        # 对于正常长度的信号，应用滤波器
+        # For normal length signals, apply filter
         if config.BANDPASS_FILTER and signal_length >= 50:
             try:
-                # 使用安全的滤波器长度
+                # Use safe filter length
                 safe_filter_length = min(signal_length // 3, 101)
-                safe_filter_length = max(safe_filter_length, 15)  # 至少15个样本
+                safe_filter_length = max(safe_filter_length, 15)  # At least 15 samples
             
                 meg_data = mne.filter.filter_data(
                     meg_data, 
@@ -315,21 +315,21 @@ class MASCMEGDataset(Dataset):
                     verbose=False
                 )
             except Exception as e:
-                print(f"带通滤波器错误: {e}")
+                print(f"Bandpass filter error: {e}")
     
-        # 对于长度足够的信号，应用陷波滤波器
-        if config.NOTCH_FILTER and signal_length >= 100:  # 只在较长信号上应用陷波滤波
+        # For signals of sufficient length, apply notch filter
+        if config.NOTCH_FILTER and signal_length >= 100:  # Only apply notch filter on longer signals
             try:
                 meg_data = mne.filter.notch_filter(
                     meg_data,
-                    info['sfreq'],  # 位置参数，不是关键字
+                    info['sfreq'],  # Positional parameter, not keyword
                     freqs=config.NOTCH_FILTER,
                     verbose=False
                 )
             except Exception as e:
-                print(f"陷波滤波器错误: {e}")
+                print(f"Notch filter error: {e}")
     
-        # 归一化
+        # Normalization
         if config.NORMALIZATION == "global":
             meg_data = (meg_data - np.mean(meg_data)) / (np.std(meg_data) + 1e-8)
         elif config.NORMALIZATION == "channel":
