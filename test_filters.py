@@ -3,45 +3,45 @@ import mne
 import numpy as np
 import warnings
 
-# 忽略命名约定警告
+# Ignore naming convention warnings
 warnings.filterwarnings("ignore", message="This.*does not conform to MNE naming conventions")
 
 def test_filters():
-    """测试MNE滤波器行为"""
-    # 生成测试数据
-    sfreq = 1000  # 采样率
-    t = np.arange(0, 1, 1/sfreq)  # 1秒数据
+    """Test MNE filter behavior"""
+    # Generate test data
+    sfreq = 1000  # Sampling rate
+    t = np.arange(0, 1, 1/sfreq)  # 1 second of data
     n_channels = 10
-    data = np.random.randn(n_channels, len(t))  # 随机数据
+    data = np.random.randn(n_channels, len(t))  # Random data
     
-    print("测试短信号的带通滤波器")
+    print("Testing bandpass filter for short signals")
     try:
-        # 测试正常滤波
+        # Test normal filtering
         filtered_data = mne.filter.filter_data(
             data, sfreq, l_freq=1, h_freq=40, filter_length='auto'
         )
-        print("成功: 使用auto滤波器长度")
+        print("Success: Using auto filter length")
     except Exception as e:
-        print(f"错误: {e}")
+        print(f"Error: {e}")
     
-    print("\n测试陷波滤波器")
+    print("\nTesting notch filter")
     try:
-        # 正确的参数顺序
+        # Correct parameter order
         notched_data = mne.filter.notch_filter(
             data, sfreq, freqs=60
         )
-        print("成功: 正确参数顺序")
+        print("Success: Correct parameter order")
     except Exception as e:
-        print(f"错误: {e}")
+        print(f"Error: {e}")
     
     try:
-        # 错误的参数顺序
+        # Incorrect parameter order
         notched_data = mne.filter.notch_filter(
             data, sfreq=sfreq, freqs=60
         )
-        print("成功: 关键字参数也可以工作?")
+        print("Success: Keyword arguments also work?")
     except Exception as e:
-        print(f"错误: {str(e)}")
+        print(f"Error: {str(e)}")
 
 if __name__ == "__main__":
     test_filters()
